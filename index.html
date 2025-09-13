@@ -11,26 +11,15 @@
     button { margin: 5px; padding: 10px; background: green; color: white; border: none; border-radius: 5px; cursor: pointer; }
     button:hover { background: darkgreen; }
     table { width: 100%; margin-top: 20px; border-collapse: collapse; background: white; }
-    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
     th { background: #eee; }
   </style>
 </head>
 <body>
   <h1>Voting System</h1>
 
-  <label for="yearSelect">Choose Year:</label>
-  <select id="yearSelect">
-    <option value="Year4">Year 4</option>
-    <option value="Year5">Year 5</option>
-    <option value="Year6">Year 6</option>
-    <option value="Year7">Year 7</option>
-    <option value="Year8">Year 8</option>
-    <option value="Year9">Year 9</option>
-    <option value="Year10">Year 10</option>
-    <option value="Year11">Year 11</option>
-  </select>
-
-  <br><br>
+  <label for="classSelect">Choose Class:</label>
+  <select id="classSelect"></select>
 
   <div id="candidates"></div>
 
@@ -39,34 +28,44 @@
   <div id="results" class="hidden"></div>
 
   <script>
-    // Candidate lists per year
-    const candidatesByYear = {
-      Year4: ["Ali", "Sara", "Mohamed"],
-      Year5: ["Hana", "Omar", "Mina"],
-      Year6: ["Youssef", "Layla", "Khaled"],
-      Year7: ["Tamer", "Rania", "Salma"],
-      Year8: ["Fady", "Mariam", "Adel"],
-      Year9: ["Ziad", "Hussein", "Nada"],
-      Year10: ["Omar T", "Sara M", "Amr S"],
-      Year11: ["Adam", "Moaz", "Laila", "Jana", "Omar E", "Yehia"]
+    // Candidate lists (example for 3 classes)
+    const candidatesByClass = {
+      "4A": ["Ali", "Sara", "Mohamed"],
+      "4B": ["Hana", "Omar", "Mina"],
+      "5A": ["Youssef", "Layla", "Khaled"]
     };
 
-    // Store votes
+    // Votes storage
     let votes = {};
-    for (let year in candidatesByYear) {
-      votes[year] = {};
-      candidatesByYear[year].forEach(c => votes[year][c] = 0);
+    for (let cls in candidatesByClass) {
+      votes[cls] = {};
+      candidatesByClass[cls].forEach(c => votes[cls][c] = 0);
     }
 
-    let selectedYear = document.getElementById("yearSelect").value;
-    let currentVotes = []; // track the two votes for a student
+    let currentClass = null;
+    let hasVoted = false; // restrict to 1 vote only
 
-    function renderCandidates(year) {
-      selectedYear = year;
-      currentVotes = [];
+    // Fill class dropdown
+    const classSelect = document.getElementById("classSelect");
+    for (let cls in candidatesByClass) {
+      const opt = document.createElement("option");
+      opt.value = cls;
+      opt.textContent = cls;
+      classSelect.appendChild(opt);
+    }
+    currentClass = classSelect.value;
+    renderCandidates(currentClass);
+
+    classSelect.addEventListener("change", e => {
+      currentClass = e.target.value;
+      hasVoted = false; // reset when class changes
+      renderCandidates(currentClass);
+    });
+
+    function renderCandidates(cls) {
       const div = document.getElementById("candidates");
-      div.innerHTML = "<h2>Candidates for " + year + "</h2>";
-      candidatesByYear[year].forEach(c => {
+      div.innerHTML = `<h2>Candidates for ${cls}</h2>`;
+      candidatesByClass[cls].forEach(c => {
         const btn = document.createElement("button");
         btn.textContent = c;
         btn.onclick = () => castVote(c);
@@ -75,16 +74,12 @@
     }
 
     function castVote(candidate) {
-      if (currentVotes.length >= 2) {
-        alert("You can only vote for 2 candidates!");
+      if (hasVoted) {
+        alert("You already voted in this class!");
         return;
       }
-      if (currentVotes.includes(candidate)) {
-        alert("You cannot vote for the same candidate twice!");
-        return;
-      }
-      currentVotes.push(candidate);
-      votes[selectedYear][candidate]++;
+      votes[currentClass][candidate]++;
+      hasVoted = true;
       alert("Vote recorded for " + candidate);
     }
 
@@ -93,32 +88,13 @@
       resultsDiv.classList.remove("hidden");
       resultsDiv.innerHTML = "<h2>Results</h2>";
 
-      for (let year in votes) {
-        let totalVotes = 0;
-        let yearVotes = [];
-        for (let c in votes[year]) {
-          yearVotes.push({ name: c, count: votes[year][c] });
-          totalVotes += votes[year][c];
+      for (let cls in votes) {
+        let total = 0;
+        let classVotes = [];
+        for (let c in votes[cls]) {
+          classVotes.push({ name: c, count: votes[cls][c] });
+          total += votes[cls][c];
         }
+        classVotes.sort((a, b) => b.count - a.count);
 
-        // sort descending
-        yearVotes.sort((a, b) => b.count - a.count);
-
-        let table = "<h3>" + year + " (Total Votes: " + totalVotes + ")</h3>";
-        table += "<table><tr><th>Candidate</th><th>Votes</th></tr>";
-        yearVotes.forEach(c => {
-          table += `<tr><td>${c.name}</td><td>${c.count}</td></tr>`;
-        });
-        table += "</table>";
-        resultsDiv.innerHTML += table;
-      }
-    }
-
-    // Initial render
-    renderCandidates(selectedYear);
-    document.getElementById("yearSelect").addEventListener("change", e => {
-      renderCandidates(e.target.value);
-    });
-  </script>
-</body>
-</html>
+        let table = `<h3>${cls} (Total Votes: ${total})</h3>`;
