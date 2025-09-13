@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vote for Class Presenter</title>
+<style>
+    body { font-family: Arial, sans-serif; text-align: center; margin-top: 40px; }
+    h1 { color: green; }
+    button { margin: 6px; padding: 10px 20px; cursor: pointer; border-radius: 6px; border: none; }
+    .year-btn { background: lightgreen; }
+    .candidate-btn { background: darkgreen; color: white; margin: 5px; padding: 10px; border-radius: 5px; }
+    .hidden { display: none; }
+    table { width: 70%; margin: 20px auto; border-collapse: collapse; }
+    table, th, td { border: 1px solid #333; padding: 8px; }
+    .class-header { background: lightgreen; }
+    input, select { padding: 6px; margin: 5px; }
+    .admin-section { border: 2px solid green; padding: 15px; margin: 15px; }
+    .remove-btn { margin-left: 8px; background: red; color: white; padding: 3px 6px; border-radius: 4px; cursor: pointer; }
+    .reset-btn { background: crimson; color: white; }
+
+    /* Highlight selected candidates */
+    .selected-candidate {
+        background: gold !important;
+        color: black !important;
+        font-weight: bold;
+    }
+</style>
+</head>
+<body>
+
+<h1>Ethos International School Voting</h1>
+
+<!-- Student Voting -->
+<div>
+    <h2>Vote for Your Class Presenter</h2>
+    <label>Enter Your Year: 
+        <select id="studentYear">
+            <option value="Y4">Year 4</option>
+            <option value="Y5">Year 5</option>
+            <option value="Y6">Year 6</option>
+            <option value="Y7">Year 7</option>
+            <option value="Y8">Year 8</option>
+            <option value="Y9">Year 9</option>
+            <option value="Y10">Year 10</option>
+            <option value="Y11">Year 11</option>
+        </select>
+    </label>
+    <br>
+    <button onclick="showCandidates()">Show Candidates</button>
+</div>
+
+<div id="candidateButtons" class="hidden">
+    <h3>Select Two Candidates</h3>
+    <div id="candidates"></div>
+</div>
+
+<button id="castVoteBtn" class="hidden" onclick="castVote()">Submit Vote</button>
+<p>Total Votes: <span id="totalVotes">0</span></p>
+
+<!-- Results -->
+<div>
+    <h2>Voting Results</h2>
+    <button onclick="requestPassword()">View Results</button>
+    <button onclick="hideResults()">Hide Results</button>
+    <button class="reset-btn" onclick="resetResults()">Reset Results</button>
+    <div id="dataTable" class="hidden"></div>
+</div>
+
+<script>
+let totalVotes = 0;
+let votesData = [];
+let candidatesByYear = JSON.parse(localStorage.getItem('candidatesByYear')) || {
+    Y4: ["Ali", "Sara", "Omar"], 
+    Y5: ["Laila", "Youssef"], 
+    Y6: ["Mona"], 
+    Y7: [], Y8: [], Y9: [], Y10: [], Y11: []
+};
+let selectedCandidates = [];
+let currentYear = '';
+const resultsPassword = "Ethos@123";
+
+// Show candidates for student's year
+function showCandidates() {
+    currentYear = document.getElementById('studentYear').value;
+    const list = candidatesByYear[currentYear];
+    if (!list.length) { alert("No candidates for this year yet."); return; }
+    const container = document.getElementById('candidates');
+    container.innerHTML = '';
+    list.forEach(cand => {
+        const btn = document.createElement('button');
+        btn.className = 'candidate-btn';
+        btn.textContent = cand;
+        btn.onclick = () => toggleCandidate(cand, btn);
+        container.appendChild(btn);
+    });
+    document.getElementById('candidateButtons').classList.remove('hidden');
+}
+
+// Select/deselect candidate (max 2)
+function toggleCandidate(name, button) {
+    if (selectedCandidates.includes(name)) {
+        selectedCandidates = selectedCandidates.filter(c => c !== name);
+        button.classList.remove('selected-candidate');
+    } else {
+        if (selectedCandidates.length >= 2) {
+            alert("You can only select 2 candidates!");
+            return;
+        }
+        selectedCandidates.push(name);
+        button.classList.add('selected-candidate');
+    }
+    document.getElementById('castVoteBtn').classList.toggle('hidden', selectedCandidates.length !== 2);
+}
+
+// Cast vote
+function castVote() {
+    if (selectedCandidates.length !== 2) { alert("Select exactly 2 candidates"); return; }
+    totalVotes++;
+    document.getElementById('totalVotes').textContent = totalVotes;
+
+    selectedCandidates.forEach(candidate => {
+        const existing = votesData.find(v => v.candidate === candidate && v.year === currentYear);
+        if (existing) {
+            existing.count++;
+        } else {
+            votesData.push({ year: currentYear, candidate: candidate, count: 1 });
+        }
+    });
+
+    localStorage.setItem('votesData', JSON.stringify(votesData));
+    localStorage.setItem('totalVotes', totalVotes);
+
+    // reset selection
+    selectedCandidates = [];
+    document.querySelectorAll('.candidate-btn').forEach(btn => btn.classList.remove('selected-candidate'));
+    document.getElementById('castVoteBtn').classList.add('hidden');
+
+    alert("Your 2 votes have been submitted!");
+}
+
+// Password gate for results
+function requestPassword() {
+    const entered = prompt("Enter password to view results:");
+    if (entered === resultsPassword) {
+        document.getElementById('dataTable').classList.remove('hidden');
+        displayData();
+    } else {
+        alert("Incorrect password!");
+    }
+}
+
+// Hide results
+function hideResults() {
+    document.getElementById('dataTable').classList.add('hidden');
+}
+
+// Display results (show all candidates and votes)
+function displayData() {
+    const container = document.getElementById('dataTable');
+    container.innerHTML = '';
+    const data = JSON.parse(localStorage.getItem('votesData')) || [];
+    const grouped = {};
+
+    data.forEach(v => {
+        if (!grouped[v.year]) grouped[v.year] = [];
+        grouped[v.year].push(v);
+    });
+
+    for (const year in candidatesByYear) {
+        if (!candidatesByYear[year].length) continue;
+        const table = document.createElement('table');
+        const header = `<tr class="class-header"><th>${year}</th><th>Candidate</th><th>Votes</th></tr>`;
+        table.innerHTML = header;
+        candidatesByYear[year].forEach(cand => {
+            const record = data.find(v => v.candidate === cand && v.year === year);
+            const votes = record ? record.count : 0;
+            const row = `<tr><td>${year}</td><td>${cand}</td><td>${votes}</td></tr>`;
+            table.innerHTML += row;
+        });
+        container.appendChild(table);
+    }
+}
+
+// Reset results with password
+function resetResults() {
+    const entered = prompt("Enter password to reset results:");
+    if (entered === resultsPassword) {
+        localStorage.removeItem('votesData');
+        localStorage.removeItem('totalVotes');
+        votesData = [];
+        totalVotes = 0;
+        document.getElementById('totalVotes').textContent = totalVotes;
+        document.getElementById('dataTable').innerHTML = '';
+        alert("All voting results have been reset!");
+    } else {
+        alert("Incorrect password! Reset denied.");
+    }
+}
+
+// Load saved votes
+window.onload = () => {
+    votesData = JSON.parse(localStorage.getItem('votesData')) || [];
+    totalVotes = parseInt(localStorage.getItem('totalVotes')) || 0;
+    document.getElementById('totalVotes').textContent = totalVotes;
+};
+</script>
+</body>
+</html>
